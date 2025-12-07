@@ -1,4 +1,11 @@
 services:
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: bruteforce_dvwa
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+
   redis:
     image: redis:7-alpine
     container_name: bruteforce_redis
@@ -6,30 +13,38 @@ services:
     volumes:
       - redis_data:/data
 
-  dvwa:
-    image: vulnerables/web-dvwa
-    container_name: bruteforce_dvwa
+  labdb:
+    image: mariadb:11
+    container_name: bruteforce_labdb
     restart: unless-stopped
-    ports:
-      - "8080:80"
     environment:
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=password
       - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=dvwa
-      - DWVA_SERVER=dvwa
+      - MYSQL_DATABASE=bruteforce
+      - MYSQL_USER=labuser
+      - MYSQL_PASSWORD=labpass
+    volumes:
+      - labdb_data:/var/lib/mysql
 
   monitor:
     build:
       context: .
-    container_name: bruteforce_web
+    container_name: bruteforce_monitor
     restart: unless-stopped
-    command: ["python", "app.py"]   # /app/flask_redis_indexing/app.py
     environment:
+      - STORAGE_MODE=${STORAGE_MODE}
+
       - REDIS_HOST=redis
       - REDIS_DB=0
+
+      - SQL_HOST=labdb
+      - SQL_PORT=3306
+      - SQL_DB=bruteforce
+      - SQL_USER=labuser
+      - SQL_PASSWORD=labpass
+
     depends_on:
       - redis
+      - labdb
     ports:
       - "5000:5000"
 
@@ -38,15 +53,25 @@ services:
       context: .
     container_name: bruteforce_auth
     restart: unless-stopped
-    command: ["python", "app_auth.py"]  # /app/flask_redis_indexing/app_auth.py
+    command: ["python", "app_auth.py"]
     environment:
+      - STORAGE_MODE=${STORAGE_MODE}
       - REDIS_HOST=redis
       - REDIS_DB=0
+
+      - SQL_HOST=labdb
+      - SQL_PORT=3306
+      - SQL_DB=bruteforce
+      - SQL_USER=labuser
+      - SQL_PASSWORD=labpass
+
     depends_on:
       - redis
+      - labdb
     ports:
       - "8081:8081"
 
 volumes:
   redis_data:
+  labdb_data:
 

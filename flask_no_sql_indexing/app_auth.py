@@ -10,7 +10,6 @@ from common import r, log_attempt
 
 # -------------------- Настройки --------------------
 
-# лимиты
 MAX_ATTEMPTS  = 5           # сколько неудачных попыток до блокировки
 BLOCK_SECONDS = 60          # на сколько секунд блокировать (сек)
 BASE_SLEEP    = 0.2         # минимальная задержка на любой ответ (сек)
@@ -104,7 +103,7 @@ def reset_failures(username: str) -> None:
     r.delete(block_key)
 
 
-# -------------------- Токен (по-взрослому) --------------------
+# -------------------- Токен --------------------
 
 
 def token_key() -> str:
@@ -131,7 +130,7 @@ def get_stored_token() -> str | None:
     raw = r.get(token_key())
     if not raw:
         return None
-    return raw.decode("utf-8")
+    return raw
 
 
 def clear_token() -> None:
@@ -154,6 +153,7 @@ def authenticate():
       * проверяет лимиты попыток
       * хранит пароль в стойком виде
       * использует случайный токен, привязанный к клиенту
+      * логирует попытки в Redis ИЛИ MariaDB в зависимости от STORAGE_MODE
     """
     time.sleep(BASE_SLEEP)  # чуть замедляем любой ответ
 
@@ -161,8 +161,8 @@ def authenticate():
     password   = request.args.get("password", "")
     user_token = request.args.get("user_token")
     login_flag = request.args.get("Login")
-
-    source = "safe_auth"
+    source     = "safe_auth"
+    ip_addr    = request.remote_addr or "unknown"
 
     # --- 1. Нет Login=1 → просто отдаём форму + токен ---
     if login_flag is None:
@@ -188,20 +188,19 @@ def authenticate():
         </body>
         </html>
         """
-        # это не попытка логина, можно не логировать
         return make_response(html, 200)
 
     # --- 2. Есть Login=1 → должен быть корректный токен ---
     stored_token = get_stored_token()
     if not stored_token or not user_token or not hmac.compare_digest(user_token, stored_token):
         # Токен отсутствует или не совпадает — считаем попытку неуспешной
-        log_attempt(username, password, False, source)
+        log_attempt(username, password, False, source, ip=ip_addr)
         resp = make_response("<pre>Invalid or missing user_token.</pre>", 400)
         return resp
 
     # --- 3. Проверка блокировки по лимиту ---
     if is_blocked(username):
-        log_attempt(username, password, False, source)
+        log_attempt(username, password, False, source, ip=ip_addr)
         resp = make_response(
             "<pre>Too many failed attempts. Try again later.</pre>", 429
         )
@@ -211,19 +210,15 @@ def authenticate():
     pw_key = f"auth:user:{username}:password"
     stored_hash = r.get(pw_key)
     if not stored_hash:
-        # Пользователь не найден — имитируем задержку и регистрируем неудачу
         time.sleep(0.3)
         register_failure(username)
-        log_attempt(username, password, False, source)
+        log_attempt(username, password, False, source, ip=ip_addr)
         html = "<pre><br />Username and/or password incorrect.</pre>"
         return make_response(html, 401)
 
-    stored_hash = stored_hash.decode("utf-8")
-
     if not verify_password(password, stored_hash):
-        # Неверный пароль
         register_failure(username)
-        log_attempt(username, password, False, source)
+        log_attempt(username, password, False, source, ip=ip_addr)
         html = "<pre><br />Username and/or password incorrect.</pre>"
         return make_response(html, 401)
 
@@ -231,7 +226,7 @@ def authenticate():
     reset_failures(username)
     clear_token()  # опционально очищаем токен (один логин — один токен)
 
-    log_attempt(username, password, True, source)
+    log_attempt(username, password, True, source, ip=ip_addr)
     html = f"<p>Welcome to the password protected area {username}</p>"
     return make_response(html, 200)
 

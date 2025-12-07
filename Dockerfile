@@ -8,9 +8,9 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY flask_redis_indexing/ ./flask_redis_indexing
+COPY flask_no_sql_indexing/ ./flask_no_sql_indexing
 
-WORKDIR /app/flask_redis_indexing
+WORKDIR /app/flask_no_sql_indexing
 
 CMD ["python", "app.py"]
 

@@ -1,6 +1,8 @@
+import os
 import json
+import pymysql
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, abort
 
 from common import r, log_attempt
 
@@ -103,6 +105,88 @@ def by_user(username):
 @app.route("/monitor")
 def monitor():
     return render_template("index.html")
+
+
+def get_sql_connection():
+    host = os.getenv("SQL_HOST", "labdb")
+    port = int(os.getenv("SQL_PORT", "3306"))
+    user = os.getenv("SQL_USER", "labuser")
+    password = os.getenv("SQL_PASSWORD", "labpass")
+    db = os.getenv("SQL_DB", "bruteforce")
+
+    return pymysql.connect(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=db,
+        autocommit=True,
+    )
+
+
+@app.route("/user-info", methods=["GET"])
+def user_info():
+    """
+    Безопасный аналог Blind SQL Injection из DVWA:
+    ?id=1&Submit=1
+
+    - Берём id из GET
+    - Валидируем как целое число
+    - Делаем SELECT через параметризованный запрос
+    - Никакой SQL-инъекции быть не может.
+    """
+    user_id = request.args.get("id")
+    submit  = request.args.get("Submit")
+
+    if submit is None:
+        html = """
+        <html>
+        <body>
+          <h3>Safe user info</h3>
+          <form method="get" action="/user-info">
+            <label>User ID:
+              <input type="text" name="id">
+            </label>
+            <button type="submit" name="Submit" value="1">Show</button>
+          </form>
+        </body>
+        </html>
+        """
+        return html
+
+    if user_id is None:
+        abort(400, "Missing id parameter")
+
+    try:
+        uid = int(user_id)
+    except ValueError:
+        abort(400, "Invalid id parameter")
+
+    conn = get_sql_connection()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT username, email, role FROM users_info WHERE id = %s",
+            (uid,),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return "<pre>User not found</pre>", 404
+
+    username, email, role = row
+
+    html = f"""
+    <html>
+    <body>
+      <h3>User info</h3>
+      <p>ID: {uid}</p>
+      <p>Username: {username}</p>
+      <p>Email: {email}</p>
+      <p>Role: {role}</p>
+    </body>
+    </html>
+    """
+    return html
 
 
 if __name__ == "__main__":
