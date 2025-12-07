@@ -21,7 +21,7 @@ services:
 
   monitor:
     build:
-      context: .              # <<< теперь корень
+      context: .
     container_name: bruteforce_web
     restart: unless-stopped
     command: ["python", "app.py"]   # /app/flask_redis_indexing/app.py
@@ -35,7 +35,7 @@ services:
 
   auth:
     build:
-      context: .              # тот же образ, тот же Dockerfile
+      context: .
     container_name: bruteforce_auth
     restart: unless-stopped
     command: ["python", "app_auth.py"]  # /app/flask_redis_indexing/app_auth.py

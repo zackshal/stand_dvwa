@@ -61,7 +61,6 @@ class DVWABruteforcer:
     """
     Клиент для логина в DVWA и брутфорса модуля Brute Force.
     """
-
     # Ищем user_token в любом input, с одиночными или двойными кавычками
     TOKEN_REGEX = re.compile(
         r"name=['\"]user_token['\"][^>]*value=['\"]([^'\"]+)['\"]",
@@ -88,7 +87,7 @@ class DVWABruteforcer:
 
         # Разберём URL brute, чтобы получить URL логина.
         parsed = urlsplit(self.brute_url)
-        # Префикс приложения до /vulnerabilities (если DVWA стоит не в корне)
+        # Префикс приложения до /vulnerabilities 
         idx = parsed.path.find("/vulnerabilities")
         if idx == -1:
             app_prefix = ""
