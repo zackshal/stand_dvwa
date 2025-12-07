@@ -1,0 +1,4 @@
+*.tar.xz
+dvwa_venv/
+flask_redis_indexing/__pycache__/
+flask_redis_indexing/flask_venv/

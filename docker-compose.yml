@@ -1,0 +1,52 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: bruteforce_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: bruteforce_dvwa
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=password
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=dvwa
+      - DWVA_SERVER=dvwa
+
+  monitor:
+    build:
+      context: .              # <<< теперь корень
+    container_name: bruteforce_web
+    restart: unless-stopped
+    command: ["python", "app.py"]   # /app/flask_redis_indexing/app.py
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_DB=0
+    depends_on:
+      - redis
+    ports:
+      - "5000:5000"
+
+  auth:
+    build:
+      context: .              # тот же образ, тот же Dockerfile
+    container_name: bruteforce_auth
+    restart: unless-stopped
+    command: ["python", "app_auth.py"]  # /app/flask_redis_indexing/app_auth.py
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_DB=0
+    depends_on:
+      - redis
+    ports:
+      - "8081:8081"
+
+volumes:
+  redis_data:
+
