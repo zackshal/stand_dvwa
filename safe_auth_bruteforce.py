@@ -75,7 +75,7 @@ def main():
 
         resp = session.get(args.url, params=params, timeout=5)
 
-        # логирование попытки в твой Flask-монитор
+        # логирование попытки в Flask-монитор
         try:
             r_log = request.post(
                 args.log_url,
@@ -112,7 +112,7 @@ def main():
             print(f"[*] Tried {tried} passwords in {elapsed:.2f}s")
             return
 
-        # Можно вывести прогресс раз в N попыток
+        # Можно вывести прогресс раз в 100=N попыток
         if tried % 100 == 0:
             elapsed = time.time() - start_time
             speed = tried / elapsed if elapsed > 0 else 0
